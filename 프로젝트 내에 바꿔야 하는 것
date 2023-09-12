@@ -1,0 +1,18 @@
+smart termination condition
+
+step()함수 내에 updateObservation() 문장 다음에 오는 reward 정의 방식에 관한 내용
+
+void updateOberservation()
+-> observation to the network
+
+step()함수 선언 바로 다음에 오는 pTarget12_ 등의 how I apply the action.
+-> pTarget12_부터 anymal_->setPdtarget 까지 
+ 
+•Brief explanation about applied reinforcement learning algorithm
+•How hyper-parameters or size of batch affect the performance.
+•How observation or action is adjusted and the reason why.
+•Discussion about result.(e.g.number of iterations(or samples) taken, height of obstacle)
+•Future work or possible improvements.
+
+보고서에 들어가야 할 것
+
