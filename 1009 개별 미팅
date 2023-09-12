@@ -1,0 +1,4 @@
+cuda 10.2
+- runner.py cuda를 cpu로 바꿀 수 있음
+- environment 바꾸면 다시 setup.py 돌리기
+- 

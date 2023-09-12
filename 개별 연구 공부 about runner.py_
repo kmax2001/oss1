@@ -1,0 +1,83 @@
+
+O #directories 부분
+
+ㄱ. 코드 설명
+- task_path에 runner.py의 경로 중 디렉토리 부분을 대입
+- home_path에 /home/younghokim/raisimLib 입력
+
+ㄴ. 배경 지식
+- os.path.dirname(): 경로 중 디렉토리명만 얻기
+- 예)os.path.dirname("C:/Python35/Scripts/pip.exe") -> "C:/Python35/Scripts"
+- os.path.realpath(__file__): __file__은 파일 이름을 문자열로 나타내고, os.path.realpath는 그 파일의 
+경로를 나타냄
+
+O #config 부분
+ㄱ. 코드 설명
+- cfg에 YAML().load(open(task_path+"/cfg.yaml",'r'))을 대입
+- YAML()이 클래스이며 이에 대한 함수 load가 있는 듯. 아마 cfg.yaml파일을 dictionary 형태로 파싱하여 해석함
+
+- 참조: https://velog.io/@devmin/%ED%8C%8C%EC%9D%B4%EC%8D%AC-import%EA%B0%80-module%EA%B3%BC-package-%EB%A5%BC-%EC%B0%BE%EC%95%84%EA%B0%80%EB%8A%94-%EA%B2%BD%EB%A1%9C
+
+O #create environment 부분 
+ㄱ. 코드 설명
+- rsg_anymal.RaisimGymEnv(home_path + "/rsc", dump(cfg['environment'], Dumper=RoundTripDumper))와
+cfg['environment']를 인자로써 VecEnv class 생성 후 env에 대입
+-> VecEnv는 RaisimGymVecEnv에서 찾을 수 있음
+-> dump는 load하여 dictionary형태로 저장한 정보를 다시 yaml파일로 바꿔줌 (RoundTripDumper는 원래 cfg.yaml
+의 형태로 저장함 
+
+O #Shortcuts 및 #Training
+ㄱ. 코드 설명
+- 이 프로그램에서의 ob_dim에 env.num_obs 값을, act_dim에는 env.nub_acts값을 저장
+- n_steps에 max_time 값을 control_dt값으로 나눈 값의 가우스 값을 대입
+- total_steps 에 n_steps와 env.num_envs를 곱한 값을 저장
+- avg_rewards를 빈 리스트로 초기화
+- actor에 ppo_module.Actor, critic에 ppo_module.Critic을 대입, 파라미터에 관한 설명은 ppo.module과 함께 보면 될 듯
+
+
+<'retrain'모드 일 시>
+- full_checkpoint_path, mean_csv_path, var_csv_path를 기존에 입력받은 weight_path를 통해 얻어내는 듯 함
+-> 저장 공간과 이름을 설정하는 듯
+- 이를 다른 디렉토리에다가 저장하는 듯(정확한 저장 알고리즘은 raisim_gym_helper.py를 함께 이해해야함
+- weight_path로 부터 env.obs_rms.mean, env.obs_rms.var 값을 받아옴
+-checkpoint = torch.load(full_checkpoint_path)
+ actor.architecture.load_state_dict(checkpoint['actor_architecture_state_dict'])
+ actor.distribution.load_state_dict(checkpoint['actor_distribution_state_dict'])
+ critic.architecture.load_state_dict(checkpoint['critic_architecture_state_dict'])
+->ppo.module을 보면 알 수 있을 듯
+
+<그렇지 않을 시>
+-saver = ConfigurationSaver(log_dir=home_path + "/raisimGymTorch/data/roughTerrai2n",
+                               save_items=[task_path + "/cfg.yaml", task_path + "/Environment.hpp"])
+
+<조건문 end>
+-PPO class 객체 생성(num_envs=100, num_learning_epochs=num_mini_batches=4)
+- 'retrain mode'일 시: ppo.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+O #learning 반복문 시작 (for update in range(1000000):)
+ㄱ. 코드 설명
+
+- start 변수에 현 시각 (시작시간 입력)
+- env.reset(), reward_ll_sum, done_sum, average_dones 값들 모두 0으로 설정
+- update가 100( 'eval_every_n'의 값)의 배수일 때마다 visualizing 실행
+-> actor.save_deterministic_graph(saver.data_dir+"/policy_"+str(update)+'.pt', torch.rand(1, ob_dim).cpu())
+
+- saver.data_dir/full_(update).pt 형식으로 actor.architecture.state_dict(), a.distribution.s_d(), 
+c.ar.s_d()등을 저장
+- parameters를 np.zeros([0])의 어레이로 저장
+- actor의 architecture parameters의 성분별로 parameters행렬에 추가함. policy_update.pt에 저장
+
+-env를 visualization시작함, 비디오 녹화시작
+-obs에 env.observe(False)를 대입, action_ll에 loaded_graph(torch.from_numpy(obs).cpu()), 
+reward_ll, dones에 env.step(action_ll.cpu().detach().numpy())값을 대입
+-visualization, 녹화 중지
+-이후 training code부분 추가.
+=========================================2020.12.29 runner.py 업데이트 됨=========================
+
+O #configuration 부분
+
+ㄴ. 배경지식 about argparse
+
+- argparse 라이브러리: 명령행 인터페이스를 쉽게 작성할 수 있음
+- 파서 만들기: parser = argparse.ArgumentParser(description='Process some integers.') 등
+- 인자 추가하는 법: parser.add_argument -> 

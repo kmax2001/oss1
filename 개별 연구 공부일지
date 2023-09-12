@@ -1,0 +1,235 @@
+10.25
+
+==========================코드 1회독================================================================
+O 해야 할 것
+-Eigen namespace: 해당 라이브러리 의 VectorXd/ Vector3d 자료형에 대해서 알아보기, <<연산자, setZero()함수, jointPgain, jointDgain, tail, setConstant, cwiseProduct, cast 함수
+-이해한 Eigen namespace를 바탕으로 강화학습 메커니즘 메커니즘, 관련 동역학 개념 함께 이해해기 
+-raisim namespace의 ArticulatedSystem 자료형에 대해서 알아보기 (아마 물체인 것 같음), 내가 바꾸거나 창조할 수 있는 부분이 있는지
+-> 관련 함수 getBodyIdx, setState(아마 기본 파라미터를 설정하는듯), setPdTarget, integrate, getState 함수 알아보기
+
+O 질문할 거리:
+- eigen class에 대해서는 environment에 나오는 것만 이해하면 됨?
+- 관련 강화학습 배경을 바꿔보며 강화학습에 대해 이해할 수 있고, 관련 parameter(reward의 기준이라던지)등을 바꿔보며 원하는 대로 최적화 할 수도 있고, anymal_이나 ground를 바꿔보면서 실생활 적용할 수도 있을 것 같다.
+교수님께서 제가 할 수 있는 것은 무엇이라 생각하는가? 
+
+O 알게 된 것들 about Environment.hpp
+1. 생성자 ENVIRONMENT(const std::string& resourceDir, const Yaml::Node& cfg, bool visualizable)
+- anymal_에 동물 파일 추가하는 듯. 자세한 것은 ->의 사용법을 알아야 world_에 적용하는 것인지 anymal_에
+적용하는 것 인지 알 수 있을 듯. (아마 전자 같음)
+- gvDim_, gcDim_: int 변수임, getDOF(), getGeneralizedCoordinateDim() 함수를 알아야 알 수 있을 듯
+- gc_, gv_ 등등: Eigen::VectorXd 변수임, 이에 대해서 알아봐야 할 듯 
+- gc_.setZero(gcDim_): setZero()함수 또한 Eigen 이름공간의 함수
+- obDim_ 값 설정 (obDim_은 기초 클래스에서 정의한 정수형 변수)
+
+						==10.27==
+- READ_YAML의 정체는 잘 모르겠음
+- footIndices는 집합인 듯. anymal_의 getBodyIdx함수를 알아야 할 듯
+- visualizable_이면 server클래스에 이제 까지 입력한 World클래스를 추가하는 듯
+ 
+2. 멤버함수 step(const Eigen::Ref<EigenVec>& action)
+- vectorXd pTarget12_변수 등장, cwiseProduct, +=actionMean_ 등의 연산 진행
+- 특정 횟수(아마 RL관련 내용일 듯)만큼 world_->integrate()함수 실행 
+- 이후 updateObservation()실행
+- torqueReward_계산: torqueRewardCoeff_ * anymal_->getGeneralizedForce().squaredNorm()
+- forwardVelReward_계산: forwardVelRewardCoeff_ * std::min(4.0, bodyLinearVel_[0])
+- return: 두 reward의 합
+
+3. 멤버함수 updateObservation()
+- anymal_에 getState함수 적용
+- bodyLinearVel_, bodyAngularVel_값 계산
+- obDouble에 각 값 계산
+
+4. 멤버함수 observe(Eigen::Ref<EigenVec> ob)
+- 아직 잘 모르겠음
+
+5. isTerminalState(float& terminalReward)
+- 아직 잘 모르겠음, 이름 그대로 terminal state인지를 판단하는 것 같음
+
+					======10.29=====
+O 알게 된 것들 about Eigen 라이브러리
+- using namespace Eigen;을 입력한 후 사용
+
+1. class MatrixXd 
+- MatrixXd class는 차원을 정해주어야 함.
+- MatrixXd::Random(행, 렬) : 주어진 크기에 랜덤한 원소를 넣음 (이름공간 Eigen 내부의 MatrixXd 내부의 함수인듯) 
+- MatrixXd::Constant(행,렬, 숫자) : 주어진 크기에 모든 원소가 일정한 행렬
+=> 일반화
+- Matrix2d: 2*2크기의 double 원소의 행렬
+- Matrix2Xf: 2*X크기의 float 원소의 행렬
+- MatrixXd : 크기를 모르는 double 원소의 행렬
+- Vector4f or VectorXd 등등
+
+2. << 연산자
+- vector, matrix object에 원소 대입해주는 것 같음. 왼쪽 위부터 가로로 한 줄씩 채움.
+
+3. 다양한 함수들 (MatrixXd a(2,3))
+-transpose : a.transpose() => 전치함. a = a.transpose()는 a에 aT를 대입하지 않음. b = a.transpose()로 하거나 a.transposeInPlace()함수를 쓰기 
+- 내적, 외적: v내적 w -> v.dot(w)/ v외적 w -> v.cross(w)
+- adjoint(): a.adjoint() => 전치함. (벡터와 행렬에만 적용가능)
+- head, tail
+-> dynamic size 인 경우) vector.head(n) => 앞에서부터 n개의 원소를 취함 / vector.tail(n) => 뒤에서부터 n개의 원소를 취함/ vector.segment(i,n) => i위치 부터 시작해서 n개
+-> fixed-size 인 경우) vector.head<n>(), vector.segment<n>(i)
+
+- setZero: a.setZero() => 영으로 설정
+
+- cwiseProduct : object.cwiseProduct(object)
+
+- setConstant: object.setConstant(index rows, index cols, constant Scalar& val) or 
+object.setConstant(size, val)
+-> setZero도 비슷한 메커니즘 (val값은 필요없음)
+
+- cast: A.cast<자료형>() => A의 원소들을 자료형(int, double등) 으로 바꾼 행렬을 말함 -> A의 원소를 바꾸지는 못함
+
+===================================코드 2회독==================================================
+O 해야할 것 
+- 강화학습 메커니즘 이해하기-> 10월 26, 28일 학기제 강의 참고 
+- raisim namespace의 ArticulatedSystem 자료형에 대해서 알아보기 (아마 물체인 것 같음), 내가 바꾸거나 창조할 수 있는 부분이 있는지 
+-> 관련 함수
+--world_관련: addArticulatedsystem, addGround(), get(), integrate,
+--anymal_관련:  setName, setControlMode, getgeneralizedCoordinateDim(), getDOF, getBodyIdx, setPdTarget,  getState, getGeneralizedForce, getContacts, setState(아마 기본 파라미터를 설정하는듯),
+--server_관련: launchServer(), focusOn(anymal_)
+-->raisim namespace는 raisim사이트에서 참고할 수 있는 듯 
+
+O 궁금한 점
+- pd gain이 pgain, dgain에서 각각의 비례식과 미분식의 계수이고 ptarget, vtarget은 모터의 목표값이고, 이 값들을 설정하게 되면 모터가 목표값의 오차에 대해 PD제어를 실행하면서 움직이게 되는 것?
+
+- e()함수의 정체를 알아보기 
+
+O 알게 된 것들
+- vector형 변수들과의 관계위주로 분석하였음. 
+- int gcDim_ = anymal_->getGeneralizedCoordinateDim();/ gvDim_ = anymal_->getDOF();/ nJoints_ = gvDim_ - 6;
+
+1. gc, gv 벡터 (생성자 안)
+- gc_, gv_, gc_init_, gv_init_: 모두 vectorXd형 변수, 각각 gcDim_차원과 gvDim_차원을 가지며 초기에는 모두 0으로 설정 
+- pTarget_은 gcDim_크기의 0으로 초기화, vTarget은 gvDim_크기의 0으로 초기화, pTarget12는 nJoints_크기의 0으로 초기화 
+- gc_init_ 는 19개의 원소로 초기화(코드 내에서의 gc_init_크기가 19개이며 이는 "일반화좌표계의 차원"과 같은 듯)
+
+2. jointPgain, jointDgain벡터(생성자 안)
+- 둘다 gvDim_크기(자유도인듯) 의 벡터임, Pgain은 뒤에 nJoints_개의 성분을 40으로 설정, 나머지는 0.
+- Dgain은 뒤에 nJoints_개의 성분을 1로 설정, 나머지는 0.
+
+3. object, action (생성자 안)
+- obDim_ =34 (물체의 차원인듯), actionDim_ = nJoints_, actionMean은 actionDim_(nJoints)크기의 성분이 0인 벡터로 초기화
+- actionStd_또한 actionMean처럼 초기화
+- obDouble_은 obDim_=34 크기의 성분이 0인 벡터
+- actionMean_을 gc_init_의 마지막 nJoints개의 성분으로 초기화
+- actionStd_는 모든 성분을 0.4로 초기화
+
+4. pTarget12_, pTarget	 (step 함수 안)
+- pTarget12_에 step의 인자로 받은 action의 원소를 double로 바꾸어 대입
+- pTarget12_에 자기 자신과 actionStd_벡터의 원소끼리의 곱을 대입
+- pTarget_의 마지막 nJoints_개 만큼의 원소를 pTarget12_로 대체 
+*step 함수 안에서 updateobservation() 진행
+                         			====11.4====
+5. quat, rot (updateobservation 함수 안)
+- anymal_->getState(gc_, gv_): gc_와 gv_의 값을 바꾸는 문장일 수 있음.
+- quat, rot는 각각 raisim 이름공간 내부의 Vec<4>, Mat<3,3> 변수
+- quat는 gc_의 4번째 부터 7번째 원소까지를 대입
+- quatToRotMat(quat,rot) 진행
+- bodyLinearVel_ = rot.e().transpose() * gv_.segment(0, 3) : gv_의 1~3번째 원소와 관련
+- bodyAngularVel_ = rot.e().transpose() * gv_.segment(3, 3) :gv_의 4~6번째 원소와 관련
+- obDouble_ << gc_[2] , rot.e()의 2행 벡터 전치, gc_의 마지막 12개원소, bodyLinearVel_, AngularVel_, gv_의 마지막 12개 원소
+
+O 알게 된 것들 about Raisim::World 
+1. Adding new objects
+- auto sphere = world.addSphere(0.5, 1.0)등의 문장으로 물체 추가 가능
+- sphere.setName("ball")등으로 변수 대상으로 이름을 설정할 수 있음
+- auto ball = world.getObject("~")로 해당 이름을 가진 물체를 변수로 정의할 수 있음
+- raisim::add
+*이외에 raisim홈페이지에 다양한 형태의 object를 추가하는 방법이 나와있음.
+
+O 알게 된 것들 about articulated system
+1. frame
+- 물체 위의 점의 위치나 속도는 frame을 첨부하여 쉽게 얻을 수 있음. 
+
+2. jacobians 
+- J*u=v (u: generalized velocity, v: 특정 점의 속도)
+
+3. dynamics
+- generalized force tau 
+- getKineticEnergy(): 시스템의 전체 운동 에너지를 나타냄, getEnergy(): 시스템의 전체 역학적 에너지를 나타냄.
+
+4. pd controller
+- 위에 궁금한 점 부분에 나와있는 내용
+- pdgain은 각각 proportional gain, differential gain이고 pvtarget은 각각 위치 target이고 속도 target임
+- 이때 pgain, dgain의 차원은 일반화 속도 벡터의 차원과 같고, pTarget 벡터는 일반화 좌표의 차원과 같음. 또한 vTarget벡터는 일반화 속도 벡터의 차원과 같음.
+
+5. integration steps
+- integrate1: time step이 바뀌었으면 질량 행렬의 damping을 업데이트/ collision bodies의 위치를 업데이트/ collision 감지/ 각 물체의 contacts 할당 및 contact normal 계산/ 질량 행렬, 비선형 항, 역 관성 행렬 계산/ contacts의 야코비안 계산
+- integrate2: contact properties 계산/ Pd 제어기 계산 및 feedforward force에 도입 및 제한/ 스프링이나 외부의 힘, 토크로 인한 일반화된 힘 계산/ contact solver/ 속도 integrawte/위치 integrate
+ 					======11.11========
+6. get and modify robot description in code
+- 관절의 위치를 얻을 수 있음 (parent frame에서)
+- 관절의 축을 얻을 수 있음 
+- 링크의 질량을 얻을 수 있음, 회전 중심을 얻을 수 있음
+- 질량중심의 위치를 얻을 수 있음 (getLinkCOM)
+- collision body를 얻을 수 있음
+
+7. types of indices
+- 
+
+*이외의 articulatedsystem의 사용법은 홈페이지에 나와있음
+=================================코드 3회독 =====================================================
+O 궁금한 점들
+- ControlMode가 PD_PLUS_FEEDFORWARD_TORQUE인데 이는 PD제어로 토크 값을 산출하여 제어한다는 것을 의미?
+- gc의 차원이 19인 것은 그렇다면 앞에 7개 성분을 빼면 관절 12개에 대한 관절각을 산출? 이것이 fixed 상태가 아닌 joint개수를 의미하는 것?
+- 혹시 obDim_이 34인 것은 일반화 좌표 차원 19 + nJoint차원 15인 것?
+- step함수에서 for문의 조건문 부분이 control_dt/simulation_dt +0.1나노값을 더한 후 int로 바꾸었는데, 아주 작은 숫자를 더한 이유는?
+- python setup.py develep --CMAKE_PREFIX_PATH /home/younghokim/raisimlib-master/raisim/linux 를 사용할 때가 정확히 언제?? 
+-> 다른 폴더에서 gymtorch를 쓸때 라이심을 어디에 받았는지 지시하기 위해서 
+- cfg.yaml과 environment.hpp, runner.py만 바꾸면 된다고 하였는데, runner.py안에는 environment.hpp의 특별한 언급이 없어보인다. environment.hpp의 생성자 등의 코드 내용이 어떻게 runner.py와 연관이 되나? 혹시 setup.py와 우회로 연관이 되어 있는 것?
+
+O 해야할 것 
+- 강화학습 메커니즘 이해하기-> 10월 26, 28일 학기제 강의 참고
+- 코드 수정해보면서 contact의 메커니즘이나 다른 여러 코드들 이해해 보기 
+
+
+- obDouble_에서 gc.tail(12)가 들어간 이유는 21개의 관절 중에 고정된 것이 9개여서? ->ㅇㅇ 그런듯 
+
+O 알게 된 것들 
+- raisim library 내의 함수를 중심으로 파악하였음. 
+
+1. anymal.urdf
+- 링크 개수 22개, joint 개수 21개 (이중 fixed는 9개)
+
+2. gc, gv (생성자 안)
+- gc는 일반화 좌표, gv는 일반화 속도를 의미하는 듯
+- gc_init_에 넣은 19개의 숫자는 초기의 일반화 좌표를 의미하는 듯
+- gc의 방식: 첫 3개-> 로봇의 위치, 다음 4개 -> 로봇의 방향, 나머지는 로봇의 관절각들
+- gv의 방식: 첫 3개-> 로봇의 선속도, 다음 3개 -> 로봇의 각속도, 나머지는 로봇의 관절 각속도
+
+3. pgain, dgain(생성자 안)
+- jointPgain과 jointDgain은 자유도 만큼의 차원을 가진 pgain, dgain.
+- pgain은 처음에 40을 넣음, Dgain은 처음에 1을 넣음. setPDgains실행. 일반화 힘은 초기에 0으로 설정
+
+4. footindices_ (생성자 안)
+- LF_SHANK, RF_SHANK, LH_SHANK, RH_SHANK의 index를 footIndices_집합에 넣음
+
+5. void reset() 
+- gc_init, gv_init로 state설정한 후 updateobservation()
+
+6. step함수 안
+- pTarget12_에 step 함수의 인자 action벡터를 double로 바꾼 것을 대입 후 자기 자신에 actionStd_를 원소 간 곱한 것을 대입
+- 이후 actionMean_을 더함
+- pTarget_의 마지막 njoints개의 원소에 pTarget12_를 대입
+- anymal_의 pdtarget을 pTarget, vTarget으로 설정
+- server를 반복하여 integrate()한 후 updateobservation
+
+7. updateObservation()
+- anymal_의 state를 얻어 gc_,gv_에 대입
+- bodyLinearVel_과 bodyAngularVel_을 계산이후 obDouble_벡터에 넣음 (물론 obDouble_의 성분은 더 있음)
+
+8. isTerminalState()
+- anymal_의 contacts 되어있는 몸체 리스트에 대하여 foot indices
+
+O 알게 된 것들 at 10.26자 강의
+
+- 바꿔야 하는 것들: environment.hpp/ cfg.yaml/ runenr.py + different algorithm??
+- 생성자 부분에 auto ball= world_->addSphere등으로 실험해볼 수 있음
+
+1. runner.py
+- 74줄 부터 98줄은 visualization에 해당하는 부분-> linux에만 작동
+- 
+
+2. python setup.py develep --CMAKE_PREFIX_PATH /home/younghokim/raisimlib-master/raisim/linux
+-  

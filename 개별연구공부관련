@@ -1,0 +1,4 @@
+10.25
+-Eigen namespace 라이브러리 의 VectorXd/ Vector3d 자료형에 대해서 알아보기 
+-raisim namespace의 ArticulatedSystem 자료형에 대해서 알아보기 (아마 물체인 것 같음)
+-바탕이 되는 강화학습 메커니즘에 대해서 찾아보기
